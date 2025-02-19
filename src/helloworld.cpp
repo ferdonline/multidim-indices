@@ -119,8 +119,8 @@ MultiDimIndices combine_indices_f(const MultiDimIndices& a, const MultiDimIndice
     MultiDimIndices c;
     auto new_dims = combine_dimensions(a.dimensionArray, b.dimensionArray);
     c.dimensionArray = std::move(new_dims.dimensions);
-    fmt::println("Common dimensions = [{}]", fmt::join(new_dims.common, ", "));
-    fmt::println("New    dimensions = [{}]", fmt::join(c.dimensionArray, ", "));
+    fmt::println("Common dimensions = {}", new_dims.common);
+    fmt::println("New    dimensions = {}", c.dimensionArray);
 
 
     // operate in full width points
@@ -132,7 +132,7 @@ MultiDimIndices combine_indices_f(const MultiDimIndices& a, const MultiDimIndice
         auto index = index_indices<LOW_DIM>(a, hasher);
 
         for (const auto& [key, val] : index) {
-            fmt::println(" - {} => [{}]", key, fmt::join(val, ", "));
+            fmt::println(" - {} => {}", key, val);
         }
 
         for (const auto& b_index : b.multidimensionalIndexArray) {
@@ -140,7 +140,7 @@ MultiDimIndices combine_indices_f(const MultiDimIndices& a, const MultiDimIndice
             fmt::println("   - getting indices with hash {}", hasher(b_index_e));
             auto [it_begin, it_end] = index.equal_range(hasher(b_index_e));
             for (auto a_index_e = it_begin; a_index_e != it_end; a_index_e++) {
-                fmt::println("   - merging [{}] + [{}]", fmt::join(b_index_e, ", "), fmt::join(a_index_e->second, ", "));
+                fmt::println("   - merging {} + {} ", b_index_e, a_index_e->second);
                 auto out_index = a_index_e->second;
                 for (size_t cur_dim=0; cur_dim<LOW_DIM; cur_dim++) {
                     // Important: We use bitwise-or to combine values without IFs
@@ -148,7 +148,7 @@ MultiDimIndices combine_indices_f(const MultiDimIndices& a, const MultiDimIndice
                     //   - Not common dims: one value is 0 -> bw-OR returns the only value
                     out_index[cur_dim] |= b_index_e[cur_dim];
                 }
-                fmt::println("     Res = [{}]", fmt::join(out_index, ", "));
+                fmt::println("     Res = {}", out_index);
             }
         }
     }
@@ -156,7 +156,7 @@ MultiDimIndices combine_indices_f(const MultiDimIndices& a, const MultiDimIndice
         fmt::println("Larger array");
         auto index = index_indices<4>(a, new_dims.common);
         for (const auto& [key, val] : index) {
-            fmt::println(" - {} => [{}]", key, fmt::join(val, ", "));
+            fmt::println(" - {} => [{}]", key, val);
         }
     }
 
@@ -178,7 +178,7 @@ void test1() {
     auto C = combine_indices_f(A, B);
 
     auto out_arr = expand_index<3>({1,2,3}, {1,2});
-    fmt::println("{}", fmt::join(out_arr, ", "));
+    fmt::println("Expanded: {}", out_arr);
 }
 
 void test2() {
