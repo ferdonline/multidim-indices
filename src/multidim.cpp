@@ -180,6 +180,7 @@ MultiDimIndices combine_indices_f(const MultiDimIndices& a, const MultiDimIndice
     mdebug("New    dimensions = {}", multidim_out.dimensionArray);
 
     multidim_out.multidimensionalIndexArray = combine_index_arrays(a, b, new_dims);
+
     // operate in full width points
     // auto largest_dim = c.dimensionArray.back();
 

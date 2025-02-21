@@ -16,6 +16,7 @@ endif()
 
 add_library(multidim src/multidim.cpp)
 target_compile_options(multidim PRIVATE -Wall -Wextra -Wfatal-errors)
+# target_compile_options(multidim PUBLIC "-mavx2")
 
 add_executable(tests_unit test/unit.cpp)
 target_link_libraries(tests_unit PRIVATE multidim)

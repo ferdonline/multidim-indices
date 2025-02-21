@@ -4,10 +4,11 @@
 namespace multidim {
 
 struct DimCombination {
-    gch::small_vector<size_t> dimensions;
-    gch::small_vector<size_t> common;
+    gch::small_vector<uint32_t> dimensions;
+    gch::small_vector<uint32_t> common;
 };
 
-// DimCombination combine_dimensions(const DimensionsT& dims1, const DimensionsT& dims2);
+template <typename T>
+inline T expand_index(const MultiIndexT& index, const DimensionsT& dims, const DimensionsT& out_dims);
 
 } // eof ns multidim

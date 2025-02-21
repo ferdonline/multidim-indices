@@ -5,12 +5,13 @@
 namespace multidim {
 
 /// @brief Generic structure for highly dimensional indices
-using MultiIndexT = gch::small_vector<size_t>;
+using MultiIndexT = gch::small_vector<uint64_t>;
 
 /// @brief Type of the dimensions array
 /// This structure is not in the critical path so we use
 /// a `small_vector` which can grow onto the heap 
-using DimensionsT = gch::small_vector<size_t>;
+/// Note: We consider "only" 32bits for dimensions (4B)
+using DimensionsT = gch::small_vector<uint32_t>;
 
 /// @brief The type of the Multi-Dimensional-Index-Array
 /// We consider it arbitrarily large, therefore it's
