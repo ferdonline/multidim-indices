@@ -2,8 +2,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include <fmt/ranges.h>
-#include <small_vector.hpp>
+#include <gch/small_vector.hpp>
 
 #include <multidim.hpp>
 #include "multidim_internal.hpp"
@@ -13,6 +12,7 @@
 #define LOW_DIM 4    // up to 4D: inline, vectorization friendly
 
 #ifdef MULTIDIM_DEBUG
+#include <fmt/ranges.h>
 #define mdebug(...) fmt::println(__VA_ARGS__)
 #else
 #define mdebug(...)
@@ -22,14 +22,22 @@ namespace multidim {
 
 
 template <typename T=MultiIndexT>
-inline T expand_index(const MultiIndexT& index, const DimensionsT& dims) {
-    T out(dims.size());
-    std::fill(out.begin(), out.end(), 0);
+inline T expand_index(const MultiIndexT& index, const DimensionsT& dims, const DimensionsT& out_dims) {
+    T out_index(out_dims.back() + 1); // max size
+    std::fill(out_index.begin(), out_index.end(), 0);
+    // first pass - expand the index to full dimensions
     size_t cur_i = 0;
     for (auto dim : dims) {
-        out[dim] = index[cur_i++];
+        out_index[dim] = index[cur_i++];
     }
-    return out;
+    // second pass - select only the out dimensions (make "sparse")
+    // Note Can can reuse the buffer since it will be shorter
+    cur_i = 0;
+    for (auto dim : out_dims) {
+        out_index[cur_i++] = out_index[dim];
+    }
+    out_index.resize(cur_i);
+    return out_index;
 }
 
 /// @brief Combines two dimension maps.
@@ -103,10 +111,11 @@ private:
 };
 
 template <typename T=MultiIndexT>
-decltype(auto) map_indices(const MultiDimIndices& indices, const HashByDim<T>& hasher) {
+decltype(auto) map_indices(const MultiDimIndices& indices, const HashByDim<T>& hasher, const DimensionsT& out_dims) {
     std::unordered_multimap<size_t, T> out_map;
     for (const auto& index : indices.multidimensionalIndexArray) {
-        auto expanded_index = expand_index<T>(index, indices.dimensionArray);
+        auto expanded_index = expand_index<T>(index, indices.dimensionArray, out_dims);
+        mdebug("in: {} out: {}", index, expanded_index);
         out_map.emplace(hasher(expanded_index), expanded_index);
     }
 
@@ -122,18 +131,19 @@ decltype(auto) map_indices(const MultiDimIndices& indices, const HashByDim<T>& h
 template <typename T=MultiIndexT>
 MDIndexArrayT combine_index_arrays(const MultiDimIndices& indices1, 
                                    const MultiDimIndices& indices2,
-                                   const DimensionsT& common_dims) {
+                                   const DimCombination& new_dims) {
     MDIndexArrayT index_arr_out{};
-    if (common_dims.empty()) {
+    if (new_dims.common.empty()) {
         return index_arr_out;
     }
-    const auto larger_dim = common_dims.back();
+    const auto out_n_dimensions = new_dims.dimensions.size();
+
     
     // Create a hasher for our type, considering only the important dimensions
-    HashByDim<T> hasher(common_dims);
+    HashByDim<T> hasher(new_dims.common);
 
     // indices 1 are those which get mapped
-    auto index = map_indices(indices1, hasher);
+    auto index = map_indices(indices1, hasher, new_dims.dimensions);
 
     // We then go along the second array
     // Important: We use bitwise-or to combine indices with matching dims 
@@ -143,7 +153,7 @@ MDIndexArrayT combine_index_arrays(const MultiDimIndices& indices1,
     //   -   Otherwise: one value is 0 -> bw-OR returns the only value
     
     for (const auto& index2 : indices2.multidimensionalIndexArray) {
-        auto index2_exp = expand_index(index2, indices2.dimensionArray);
+        auto index2_exp = expand_index(index2, indices2.dimensionArray, new_dims.dimensions);
         mdebug("   - getting indices with hash {}", hasher(index2_exp));
         
         auto [it_begin, it_end] = index.equal_range(hasher(index2_exp));
@@ -151,10 +161,11 @@ MDIndexArrayT combine_index_arrays(const MultiDimIndices& indices1,
             mdebug("   - merging {} + {} ", index2_exp, index1_exp->second);
             
             auto out_index = index1_exp->second;
-            for (size_t cur_dim=0; cur_dim<larger_dim; cur_dim++) {
+            for (size_t cur_dim=0; cur_dim<out_n_dimensions; cur_dim++) {
                 out_index[cur_dim] |= index2_exp[cur_dim];
             }
             mdebug("     Res = {}", out_index);
+
             index_arr_out.emplace_back(std::move(out_index));
         }
     }
@@ -166,9 +177,9 @@ MultiDimIndices combine_indices_f(const MultiDimIndices& a, const MultiDimIndice
     auto new_dims = combine_dimensions(a.dimensionArray, b.dimensionArray);
     multidim_out.dimensionArray = std::move(new_dims.dimensions);
     mdebug("Common dimensions = {}", new_dims.common);
-    mdebug("New    dimensions = {}", c.dimensionArray);
+    mdebug("New    dimensions = {}", multidim_out.dimensionArray);
 
-    multidim_out.multidimensionalIndexArray = combine_index_arrays(a, b, new_dims.common);
+    multidim_out.multidimensionalIndexArray = combine_index_arrays(a, b, new_dims);
     // operate in full width points
     // auto largest_dim = c.dimensionArray.back();
 

@@ -2,17 +2,20 @@ cmake_minimum_required(VERSION 3.10)
 project(HelloWorld)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-find_package(fmt CONFIG REQUIRED)
+option(MULTIDIM_DEBUG "Print intermediate debug data using fmt")
+
+include_directories(SYSTEM "external")
+include_directories("include")
+if(MULTIDIM_DEBUG)
+    find_package(fmt CONFIG REQUIRED)
+    add_compile_definitions(MULTIDIM_DEBUG=1)
+    link_libraries(fmt::fmt)
+endif()
 
 add_library(multidim src/multidim.cpp)
-target_link_libraries(multidim PRIVATE fmt::fmt)
-target_include_directories(multidim PUBLIC "deps/gch" "include")
 target_compile_options(multidim PRIVATE -Wall -Wextra -Wfatal-errors)
 
-
-add_executable(tests_integration test/integration.cpp)
-target_link_libraries(tests_integration PRIVATE fmt::fmt)
-
-target_link_libraries(tests_integration PRIVATE multidim)
+add_executable(tests_unit test/unit.cpp)
+target_link_libraries(tests_unit PRIVATE multidim)
