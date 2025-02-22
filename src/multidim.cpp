@@ -6,7 +6,6 @@
 
 #include <multidim.hpp>
 #include "multidim_internal.hpp"
-#include "smalldim_opt.hpp"
 
 #define ENABLE_UNORDERED_DIMENSIONS 0
 #define LOW_DIM 4    // up to 4D: inline, vectorization friendly
@@ -169,17 +168,18 @@ MDIndexArrayT combine_index_arrays(const MultiDimIndices& indices1,
             index_arr_out.emplace_back(std::move(out_index));
         }
     }
+
     return index_arr_out;
 }
 
 MultiDimIndices combine_indices_f(const MultiDimIndices& a, const MultiDimIndices& b) {
     MultiDimIndices multidim_out;
     auto new_dims = combine_dimensions(a.dimensionArray, b.dimensionArray);
-    multidim_out.dimensionArray = std::move(new_dims.dimensions);
     mdebug("Common dimensions = {}", new_dims.common);
     mdebug("New    dimensions = {}", multidim_out.dimensionArray);
 
     multidim_out.multidimensionalIndexArray = combine_index_arrays(a, b, new_dims);
+    multidim_out.dimensionArray = std::move(new_dims.dimensions);
 
     // operate in full width points
     // auto largest_dim = c.dimensionArray.back();
