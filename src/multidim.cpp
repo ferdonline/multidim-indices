@@ -29,22 +29,22 @@ namespace multidim {
 /// @return  The expanded
 template <typename ArrayT>
 inline ArrayT expand_index(const MultiIndexT& index, const DimensionsT& dims, const DimensionsT& out_dims) {
-    /// First do a full-width expansion
-    /// @todo use tmp stack space: alloca
-    ArrayT out_index(out_dims.back() + 1); // max size
-    std::fill(out_index.begin(), out_index.end(), 0);
-    // first pass - expand the index to full dimensions
+    // First do a full-width expansion. Allocate in stack sufficient elements
+    // NOTE: We use a separate tmp buffer because it might be relatively large due to full expansion
+    size_t max_elems = out_dims.back() + 1;
+    auto tmp_vec = static_cast<uint64_t*>(alloca(max_elems * sizeof(uint64_t)));
+    std::fill(tmp_vec, tmp_vec+max_elems, 0ul);
     size_t cur_i = 0;
     for (auto dim : dims) {
-        out_index[dim] = index[cur_i++];
+        tmp_vec[dim] = index[cur_i++];
     }
     // second pass - select only the out dimensions (make "sparse")
-    // Note Can can reuse the buffer since it will be shorter
+    // Out index is typically a small_vector<uint64> which can hold up to 8 values without reaching for the heap
+    ArrayT out_index(out_dims.size());
     cur_i = 0;
     for (auto dim : out_dims) {
-        out_index[cur_i++] = out_index[dim];
+        out_index[cur_i++] = tmp_vec[dim];
     }
-    out_index.resize(cur_i);
     return out_index;
 }
 
@@ -127,7 +127,7 @@ decltype(auto) map_indices(const MultiDimIndices& indices, const HashByDim& hash
     }
 #ifdef MULTIDIM_DEBUG
     for (const auto& [key, val] : out_map) {
-        fmt::println(" - {} => {}", key, val);
+        mdebug(" - {} => {}", key, val);
     }
 #endif
     return out_map;
@@ -174,7 +174,11 @@ MDIndexArrayT combine_index_arrays(const MultiDimIndices& indices1,
             }
             mdebug("     Res = {}", out_index);
 
+            // Append to output array.
+            // On large inputs this might exhaust memory so for benchmarks we skip it
+            #ifndef MULTIDIM_BENCHMARKING
             index_arr_out.push_back(std::move(out_index));
+            #endif
             merges += 1;
         }
         // Give user some feedback

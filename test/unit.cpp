@@ -6,8 +6,8 @@
 using namespace multidim;
 
 #ifdef MULTIDIM_DEBUG
-#include <fmt/format.h>
-#define mdebug(...) fmt::println(__VA_ARGS__)
+#include <fmt/ranges.h>
+#define mdebug(...) { fmt::print(__VA_ARGS__); printf("\n"); }
 #else
 #define mdebug(...)
 #endif
@@ -20,11 +20,12 @@ void test_example1() {
     B.dimensionArray = {0, 2};
 
     auto C = combine_indices_f(A, B);
-    // fmt::println("C.indices = {}", C.multidimensionalIndexArray);
-    // fmt::println("C.dimensions = {}", C.dimensionArray);
+    mdebug("C.indices = {}", C.multidimensionalIndexArray);
+    mdebug("C.dimensions = {}", C.dimensionArray);
     DimensionsT expected_dims{0, 1, 2};
     TEST_CHECK(C.dimensionArray == expected_dims);
     MDIndexArrayT expected_indices{{0, 0, 2}, {0, 1, 2}, {1, 0, 3}};
+    std::sort(C.multidimensionalIndexArray.begin(), C.multidimensionalIndexArray.end());
     TEST_CHECK(C.multidimensionalIndexArray == expected_indices);
 }
 

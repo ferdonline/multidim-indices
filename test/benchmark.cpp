@@ -5,8 +5,8 @@
 #include <multidim.hpp>
 
 #ifdef MULTIDIM_DEBUG
-#include <fmt/format.h>
-#define mdebug(...) fmt::println(__VA_ARGS__)
+#include <fmt/ranges.h>
+#define mdebug(...) { fmt::print(__VA_ARGS__); printf("\n"); }
 #else
 #define mdebug(...)
 #endif
@@ -14,8 +14,8 @@
 namespace md = multidim;
 
 constexpr size_t N_DIMENSIONS = 4;
-constexpr size_t MAX_INDEX_VALUE = 100;
-constexpr size_t MAX_INDICES_LEN = 1 << 18; // > MAX_INDEX_VALUE so that there is better probability of repeated
+constexpr size_t MAX_INDEX_VALUE = 1000;
+constexpr size_t MAX_INDICES_LEN = 1 << 20; // > MAX_INDEX_VALUE so that there is better probability of repeated
 // constexpr size_t MAX_DIM_VALUE // impl specific. We randomly increase dim value
 
 // Create very large random input arrays
