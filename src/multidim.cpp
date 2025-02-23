@@ -11,8 +11,8 @@
 #define LOW_DIM 4    // up to 4D: inline, vectorization friendly
 
 #ifdef MULTIDIM_DEBUG
-#include <fmt/format.h>
-#define mdebug(...) ::fmt::println(__VA_ARGS__)
+#include <fmt/ranges.h>
+#define mdebug(...) { fmt::print(__VA_ARGS__); printf("\n"); }
 #else
 #define mdebug(...)
 #endif
@@ -90,7 +90,7 @@ DimCombination combine_dimensions(const DimensionsT& dims1, const DimensionsT& d
 }
 
 /// @brief A Hasher of a MultiIndex, given the relevant dimensions
-/// @note Relevant dimensions are the common ones. We
+/// @note Relevant dimensions are the common ones
 struct HashByDim {
     HashByDim(const DimensionsT& key_dims)
         : key_dims_{key_dims} {}

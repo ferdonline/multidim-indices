@@ -1,9 +1,11 @@
 /// Performance optimization with inlined elements and vector instructions
 
+#include <array>
+#include <immintrin.h>
+
 #include <multidim.hpp>
 #include "multidim_internal.hpp"
 
-#include <immintrin.h>
 
 namespace multidim {
 
