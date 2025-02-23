@@ -5,7 +5,7 @@
 #include <multidim.hpp>
 
 #ifdef MULTIDIM_DEBUG
-#include <fmt/ranges.h>
+#include <fmt/format.h>
 #define mdebug(...) fmt::println(__VA_ARGS__)
 #else
 #define mdebug(...)
@@ -13,9 +13,9 @@
 
 namespace md = multidim;
 
-constexpr size_t MAX_DIM_LEN = 16;
+constexpr size_t N_DIMENSIONS = 4;
 constexpr size_t MAX_INDEX_VALUE = 100;
-constexpr size_t MAX_INDICES_LEN = 1 << 20; // > MAX_INDEX_VALUE so that there is better probability of repeated
+constexpr size_t MAX_INDICES_LEN = 1 << 18; // > MAX_INDEX_VALUE so that there is better probability of repeated
 // constexpr size_t MAX_DIM_VALUE // impl specific. We randomly increase dim value
 
 // Create very large random input arrays
@@ -26,8 +26,11 @@ struct InputArrays {
     {
         std::mt19937 rng(std::random_device{}());
         // Generate dimensions
-        gen_dimensions(A.dimensionArray, rng);        
-        gen_dimensions(B.dimensionArray, rng);
+        // gen_dimensions(A.dimensionArray, rng);
+        // gen_dimensions(B.dimensionArray, rng);
+        // Performance is very much dependent on the indices. Optimize first with 4D, 2 common
+        A.dimensionArray = {0, 1, 2, 3};
+        B.dimensionArray = {0, 2, 5, 6};
 
         // Generate indices
         gen_indices(A.multidimensionalIndexArray, rng);
@@ -36,8 +39,8 @@ struct InputArrays {
 
     inline void gen_dimensions(md::DimensionsT& arr, std::mt19937& rng) {
         std::poisson_distribution poisson_1(1);  // 1 is the reference, but there could jumps
-        arr.resize(MAX_DIM_LEN);
-        for (uint32_t next = poisson_1(rng), i = 0; i < MAX_DIM_LEN; i++) {
+        arr.resize(N_DIMENSIONS);
+        for (uint32_t next = poisson_1(rng), i = 0; i < N_DIMENSIONS; i++) {
             arr[i] = next;
             next += std::max(poisson_1(rng), 1);
         }
@@ -47,8 +50,8 @@ struct InputArrays {
         std::uniform_int_distribution<std::mt19937::result_type> randint(0, MAX_INDEX_VALUE); // for indices
         arr.resize(MAX_INDICES_LEN);
         for (auto& index : arr) {
-            index.resize(MAX_DIM_LEN);
-            for (size_t i = 0; i < MAX_DIM_LEN; i++) {
+            index.resize(N_DIMENSIONS);
+            for (size_t i = 0; i < N_DIMENSIONS; i++) {
                 index[i] = randint(rng);
             }
         }

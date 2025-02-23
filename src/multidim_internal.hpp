@@ -4,8 +4,8 @@
 namespace multidim {
 
 struct DimCombination {
-    gch::small_vector<uint32_t> dimensions;
-    gch::small_vector<uint32_t> common;
+    DimensionsT dimensions;
+    DimensionsT common;
 };
 
 template <typename T>

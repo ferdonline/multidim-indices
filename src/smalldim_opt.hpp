@@ -27,8 +27,8 @@ inline CompactIndexT expand_index(const MultiIndexT& index, const DimensionsT& d
     if (dims.size() >= 4) out[dims[3]] = index[3];
 
     // PART 2 - Filter by required out dimensions / compact structure
-    // __m256i gathered = _mm256_i32gather_epi64(out.data(), idx, 4);
-    // Is it also unfortunate we dont know compile-time how many elements there are
+    // Ideally we would use _mm256_i32gather_epi64(out.data(), idx, 4);
+    // However ATM we are dependent on runtime len parameters
     out[0] = out[out_dims[0]];
     out[1] = (out_dims.size() >= 2)? out[out_dims[1]] : 0;
     out[2] = (out_dims.size() >= 3)? out[out_dims[2]] : 0;

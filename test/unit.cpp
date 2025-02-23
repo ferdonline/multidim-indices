@@ -6,7 +6,7 @@
 using namespace multidim;
 
 #ifdef MULTIDIM_DEBUG
-#include <fmt/ranges.h>
+#include <fmt/format.h>
 #define mdebug(...) fmt::println(__VA_ARGS__)
 #else
 #define mdebug(...)
