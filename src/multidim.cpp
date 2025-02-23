@@ -116,13 +116,20 @@ private:
 /// @param out_dims The output dimensions, so that items are stored in the tree in their final shape
 /// @return The hash map of the indices
 decltype(auto) map_indices(const MultiDimIndices& indices, const HashByDim& hasher, const DimensionsT& out_dims) {
-    std::unordered_multimap<size_t, MultiIndexT> out_map;
+    std::unordered_map<size_t, std::vector<MultiIndexT>> out_map{};
     fprintf(stderr, "Indexing...");
     size_t i=0;
     for (const auto& index : indices.multidimensionalIndexArray) {
         MultiIndexT expanded_index = expand_index<MultiIndexT>(index, indices.dimensionArray, out_dims);
         mdebug("in: {} out: {}", index, expanded_index);
-        out_map.emplace(hasher(expanded_index), expanded_index);
+        auto hash = hasher(expanded_index);
+        auto bucket = out_map.find(hash);
+        if (bucket == out_map.end()) {
+            auto [new_bucket, inserted] = out_map.emplace(hash, 0);
+            new_bucket->second.push_back(std::move(expanded_index));
+        } else {
+            bucket->second.push_back(std::move(expanded_index));
+        }
         if (++i % 100000 == 0) { fprintf(stderr, "."); }
     }
 #ifdef MULTIDIM_DEBUG
@@ -164,11 +171,13 @@ MDIndexArrayT combine_index_arrays(const MultiDimIndices& indices1,
         auto index2_exp = expand_index<MultiIndexT>(index2, indices2.dimensionArray, new_dims.dimensions);
         mdebug("   - getting indices with hash {}", hasher(index2_exp));
 
-        auto [it_begin, it_end] = index.equal_range(hasher(index2_exp));
-        for (auto index1_exp = it_begin; index1_exp != it_end; index1_exp++) {
-            mdebug("   - merging {} + {} ", index2_exp, index1_exp->second);
+        auto bucket = index.find(hasher(index2_exp));
+        if (bucket == index.end()) {
+            continue;
+        }
+        for (auto out_index : bucket->second) {
+            mdebug("   - merging {} + {} ", index2_exp, out_index);
 
-            auto out_index = index1_exp->second;
             for (size_t cur_dim=0; cur_dim<out_n_dimensions; cur_dim++) {
                 out_index[cur_dim] |= index2_exp[cur_dim];
             }
