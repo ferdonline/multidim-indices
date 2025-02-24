@@ -50,7 +50,7 @@ void test_example2() {
 void test_speedy_expand() {
     /// value [2,4,6] to be mapped to new dims. Drop dim 0, fill with 0 at end
     auto out = expand_index<CompactIndexT>({2, 4, 6}, {0, 1, 3}, {1, 2, 3});
-    CompactIndexT expected_index{4, 0, 6, 0};
+    CompactIndexT expected_index{4, 0, 6};
     mdebug("Exp index = {}", out);
     TEST_CHECK(out == expected_index);
 }

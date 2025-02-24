@@ -168,6 +168,7 @@ MDIndexArrayT combine_index_arrays(const MultiDimIndices& indices1,
     size_t merges = 0;
 
     for (const auto& index2 : indices2.multidimensionalIndexArray) {
+        // Note: expand_index is compile-parametrizable with the output data type
         auto index2_exp = expand_index<MultiIndexT>(index2, indices2.dimensionArray, new_dims.dimensions);
         mdebug("   - getting indices with hash {}", hasher(index2_exp));
 

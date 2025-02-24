@@ -15,7 +15,7 @@ endif()
 
 include_directories(SYSTEM "external")
 include_directories("include")
-add_compile_options(-Wall -Wextra -Wfatal-errors -march=native)
+add_compile_options(-Wall -Wextra -Wfatal-errors -march=native -fopt-info-vec-missed)
 
 if(MULTIDIM_DEBUG)
   find_package(fmt CONFIG REQUIRED)
