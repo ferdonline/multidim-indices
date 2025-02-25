@@ -25,10 +25,18 @@ namespace multidim {
 /// @note Index being zero is an important design decision, since it will be "OR"ed with the second index
 /// @param index The index to be "expanded"
 /// @param dims The dimensions of the input index
-/// @param out_dims The output dimens
+/// @param out_dims The output dimensions
 /// @return  The expanded
 template <typename ArrayT>
-inline ArrayT expand_index(const MultiIndexT& index, const DimensionsT& dims, const DimensionsT& out_dims) {
+inline std::tuple<ArrayT, ArrayT> expand_index(const MultiIndexT& index,
+                                               const DimensionsT& dims,
+                                               const DimCombination& out_dims) {
+    // First do a full-length expansion.
+    // Full expanded array can be ~ large as it depends on the highest dimension value:
+    //   e.g. out dimensions {10, 20, 30} require 30 + 1 elements
+    // NOTE: out-dimensions is used to compute max_elems (instead of dims) so that the later loops have no conditions
+    // NOTE: use alloca() to allocate in stack such temp array and auto-reclaim mem at the end
+    size_t max_elems = out_dims.dimensions.back() + 1;
     // First do a full-width expansion. Allocate in stack sufficient elements
     // NOTE: We use a separate tmp buffer because it might be relatively large due to full expansion
     size_t max_elems = out_dims.back() + 1;
@@ -38,6 +46,9 @@ inline ArrayT expand_index(const MultiIndexT& index, const DimensionsT& dims, co
     for (auto dim : dims) {
         tmp_vec[dim] = index[cur_i++];
     }
+
+    std::tuple<ArrayT, ArrayT> out_index{out_dims.dimensions.size(), out_dims.common.size()};
+
     // second pass - select only the out dimensions (make "sparse")
     // Out index is typically a small_vector<uint64> which can hold up to 8 values without reaching for the heap
     ArrayT out_index(out_dims.size());
@@ -45,7 +56,13 @@ inline ArrayT expand_index(const MultiIndexT& index, const DimensionsT& dims, co
     for (auto dim : out_dims) {
         out_index[cur_i++] = tmp_vec[dim];
     }
-    return out_index;
+
+    ArrayT common_index(out_dims.size());
+    cur_i = 0;
+    for (auto dim : out_dims) {
+        common_index[cur_i++] = tmp_vec[dim];
+    }
+    return {common_index, out_index};
 }
 
 /// @brief Combines two dimension maps.
@@ -120,7 +137,7 @@ decltype(auto) map_indices(const MultiDimIndices& indices, const HashByDim& hash
     fprintf(stderr, "Indexing...");
     size_t i=0;
     for (const auto& index : indices.multidimensionalIndexArray) {
-        MultiIndexT expanded_index = expand_index<MultiIndexT>(index, indices.dimensionArray, out_dims);
+        auto [c_i, expanded_index] = expand_index<MultiIndexT>(index, indices.dimensionArray, out_dims);
         mdebug("in: {} out: {}", index, expanded_index);
         auto hash = hasher(expanded_index);
         auto bucket = out_map.find(hash);
@@ -155,6 +172,7 @@ MDIndexArrayT combine_index_arrays(const MultiDimIndices& indices1,
 
     // indices 1 are those which get mapped
     auto index = map_indices(indices1, hasher, new_dims.dimensions);
+    printf("N buckets: %ld\n", index.size());
 
     // We then go along the second array
     // Important: We use bitwise-or to combine indices with matching dims
@@ -169,7 +187,7 @@ MDIndexArrayT combine_index_arrays(const MultiDimIndices& indices1,
 
     for (const auto& index2 : indices2.multidimensionalIndexArray) {
         // Note: expand_index is compile-parametrizable with the output data type
-        auto index2_exp = expand_index<MultiIndexT>(index2, indices2.dimensionArray, new_dims.dimensions);
+        auto [c_i, index2_exp] = expand_index<MultiIndexT>(index2, indices2.dimensionArray, new_dims.dimensions);
         mdebug("   - getting indices with hash {}", hasher(index2_exp));
 
         auto bucket = index.find(hasher(index2_exp));
@@ -180,6 +198,9 @@ MDIndexArrayT combine_index_arrays(const MultiDimIndices& indices1,
             mdebug("   - merging {} + {} ", index2_exp, out_index);
 
             for (size_t cur_dim=0; cur_dim<out_n_dimensions; cur_dim++) {
+                if (out_index[cur_dim] != 0 && index2_exp[cur_dim] != 0 && out_index[cur_dim]!=index2_exp[cur_dim]) {
+                    break;
+                }
                 out_index[cur_dim] |= index2_exp[cur_dim];
             }
             mdebug("     Res = {}", out_index);

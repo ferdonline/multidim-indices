@@ -8,7 +8,7 @@ struct DimCombination {
     DimensionsT common;
 };
 
-template <typename T>
-inline T expand_index(const MultiIndexT& index, const DimensionsT& dims, const DimensionsT& out_dims);
+// template <typename T>
+// inline T expand_index(const MultiIndexT& index, const DimensionsT& dims, const DimensionsT& out_dims);
 
 } // eof ns multidim
