@@ -4,14 +4,17 @@
 
 namespace multidim {
 
+using IndexElemT = uint64_t; // The elementary type of an index
+using DimensionT = uint32_t; // The type of a single dimension
+
 /// @brief Generic structure for highly dimensional indices
-using MultiIndexT = gch::small_vector<uint64_t>;
+using MultiIndexT = gch::small_vector<IndexElemT>;
 
 /// @brief Type of the dimensions array
 /// This structure is not in the critical path so we use
-/// a `small_vector` which can grow onto the heap 
+/// a `small_vector` which can grow onto the heap
 /// Note: We consider "only" 32bits for dimensions (4B)
-using DimensionsT = gch::small_vector<uint32_t>;
+using DimensionsT = gch::small_vector<DimensionT>;
 
 /// @brief The type of the Multi-Dimensional-Index-Array
 /// We consider it arbitrarily large, therefore it's
@@ -19,14 +22,14 @@ using DimensionsT = gch::small_vector<uint32_t>;
 using MDIndexArrayT = std::vector<MultiIndexT>;
 
 /// @brief The MultiDimensionalIndices structure
-/// The main program structure keeps the indices and their 
+/// The main program structure keeps the indices and their
 /// corresponding dimensions.
 struct MultiDimIndices {
     MDIndexArrayT multidimensionalIndexArray{};
     DimensionsT dimensionArray{};
 };
 
-/// @brief The "f" function, which combines two MultiDimIndices 
+/// @brief The "f" function, which combines two MultiDimIndices
 MultiDimIndices combine_indices_f(const MultiDimIndices& a, const MultiDimIndices& b);
 
 } // namespace multidim eof

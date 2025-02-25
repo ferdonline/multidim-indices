@@ -10,7 +10,7 @@ Sparse becuse we are lacking some of the dimensions.
 E.g. If the indices are known for dimensions 1 and 2 we may them represent as
 ```javascript
 A = [
-    indices: [{0, 0}, {0, 1}, {1, 0}]
+    indices: [{0, 0}, {0, 1}, {1, 0}],
     dimensions: {0, 1}  // 1 and 2 converted to base 0
 ]
 ```
@@ -18,7 +18,7 @@ A = [
 consider now that we want to combine these indices with another set, to obtain an index of higher dimensionality.
 ```javascript
 B = [
-    indices: [ {0, 2}, {1, 3} ]
+    indices: [{0, 2}, {1, 3}],
     dimensions: [1, 2]  // dims 2 and 3
 ]
 ```
@@ -35,7 +35,7 @@ For example, by applying `C = combine(A, B)` one would get
 
 ```javascript
 C = [
-    indices: [{0, 0, 2}, {0, 1, 2}, {1, 0, 3}]
+    indices: [{0, 0, 2}, {0, 1, 2}, {1, 0, 3}],
     dimensions: [0, 1, 2]  // dims 1, 2 and 3
 ]
 ```
@@ -68,9 +68,9 @@ When compiling as above, two main binaries are generated under build:
 
 To improve the performance at the algorithm level some assumptions were made:
   - the input indices arrays can be arbitrarily large (N), but fits in main memory
+  - The highest index value can be in the order of billions
   - the number of dimensions (M) is much smaller than N, typically up to 10, even though it could be in the order of 1000s.
   - The highest dimension will be in the same order of magnitude as M, although it could  be in the order of millions.
-  - The highest index value can be in the order of billions
 
 To combine two arrays (size N) in a resource effective manner one must, in the first place, avoid comparing all-to-all which would incur complexity O(N * N).
 Second, since we can't avoid considering an index, e.g. from A set, against a number of elements from set B, we can also leverage from doing some preprocessing and do operations once, avoiding an additional complexity factor O(N * M).
@@ -99,7 +99,11 @@ E.g. in the original example, if we were to index B indices, we would
 
 With the indices in this format one doesn't need indirections to combine them. Unfortunately we cannot simply sum them due to the common dimensions - we don't want them to double. However a bitwise-OR will do just what we want, since we are either OR-ing the same number (from common dimensions), or a number with the neutral zero mentioned before.
 
-## 4. Low-Level CPU Optimization
+### 3.3 Computing the merged dimensions
+
+ ... Linear as well
+
+## 4. Low-Level Optimization
 
 To take the advantage of modern CPUs, in particular those based on recent x86_64 with vectorized instructions and large cache sizes, attention was made to the implementation.
 Generally, it was attempted to have inner loops without branching, over contiguous arrays. With that we have the highest cache locality, and a chance for the compiler to use SIMD instructions.
@@ -110,7 +114,7 @@ Thanks to the preprocessing mentioned above, under `combine_index_arrays` the in
 
 To enable GCC and Clang compilers vectorization, `-march=native` flags was enabled, and both will try vectorize at -O3 (Available with `cmake -DCMAKE_BUILD_TYPE=Release`)
 
-### 4.2 Manual vectorization & superscalar architectures
+### 4.2 Manual vectorization & loop unrolling
 
 Compiler Automatic vectorization might not be up to the expectations. Therefore, in the separate `smalldim_opt.hpp` source, some exploratory work was done to implement core routines in an optimized way.
 

@@ -1,7 +1,8 @@
-#include <acutest.h>
 #include <gch/small_vector.hpp>
 #include <multidim.hpp>
 #include "../src/smalldim_opt.hpp"
+
+#include <acutest.h> // add last
 
 using namespace multidim;
 

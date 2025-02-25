@@ -15,7 +15,7 @@ endif()
 
 include_directories(SYSTEM "external")
 include_directories("include")
-add_compile_options(-Wall -Wextra -Wfatal-errors -march=native -fopt-info-vec-missed)
+add_compile_options(-Wall -Wextra -Wfatal-errors -march=native)
 
 if(MULTIDIM_DEBUG)
   find_package(fmt CONFIG REQUIRED)
@@ -32,4 +32,5 @@ if (MULTIDIM_BENCHMARKING)
   # Dont reuse multidim.o. Needs different compile option to not append all values to output array
   add_executable(benchmark src/multidim.cpp test/benchmark.cpp)
   target_compile_definitions(benchmark PRIVATE MULTIDIM_BENCHMARKING=1)
+  target_compile_options(benchmark PRIVATE -fopt-info-vec-optimized)
 endif()
