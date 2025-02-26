@@ -13,6 +13,25 @@ using namespace multidim;
 #define mdebug(...)
 #endif
 
+
+void test_index_basic() {
+    IndexElemT buff[10]{};
+    MultiIndexT in_index{{5, 1, 3}};
+    DimensionsT in_dims{1, 3, 5};
+
+    expand_index(in_index, in_dims, buff);
+    TEST_CHECK(buff[1] == 5);
+    TEST_CHECK(buff[3] == 1);
+    TEST_CHECK(buff[5] == 3);
+
+    DimensionsT out_dims{{0, 1, 2, 3, 5, 6}};
+
+    auto out_index = filter_index(buff, out_dims);
+    mdebug("out Index = {}", out_index);
+    auto expected_index = MultiIndexT{0, 5, 0, 1, 3, 0};
+    TEST_CHECK(out_index == expected_index);
+}
+
 void test_example1() {
     MultiDimIndices A, B;
     A.multidimensionalIndexArray = {{0, 0}, {0, 1}, {1, 0}};
@@ -48,17 +67,20 @@ void test_example2() {
 }
 
 
-void test_speedy_expand() {
+void test_speedy_filter() {
     /// value [2,4,6] to be mapped to new dims. Drop dim 0, fill with 0 at end
-    auto out = expand_index<CompactIndexT>({2, 4, 6}, {0, 1, 3}, {1, 2, 3});
-    CompactIndexT expected_index{4, 0, 6};
+    IndexElemT buff[8]{4, 5, 6, 7, 8, 0, 0, 0};
+    auto out = filter_index<CompactIndexT>(buff, {1, 3, 5});
+    CompactIndexT expected_index{5, 7, 0};
     mdebug("Exp index = {}", out);
     TEST_CHECK(out == expected_index);
 }
 
 
 TEST_LIST = {
+    {"test_index_basic", test_index_basic},
     {"test_example1", test_example1},
     {"test2", test_example2},
-    {"test_speedy_expand", test_speedy_expand}
+    {"test_speedy_filter", test_speedy_filter},
+    { NULL, NULL }     /* zeroed record marking the end of the list */
 };

@@ -4,7 +4,7 @@
 #include <immintrin.h>
 
 #include <multidim.hpp>
-#include "multidim_internal.hpp"
+#include "multidim_p.hpp"
 
 
 namespace multidim {
@@ -15,26 +15,19 @@ namespace multidim {
 using CompactIndexT = std::array<uint64_t, OPTIMIZED_DIM>;
 
 // Template version specialized for 4D (4*8 B = 256 bits)
-// For reference version of any dimensionality see multidim.cpp
+// For reference version of any dimensionality see multidim_p.hpp
 template <>
-inline CompactIndexT expand_index(const MultiIndexT& index, const DimensionsT& dims, const DimensionsT& out_dims) {
+inline CompactIndexT filter_index(const IndexElemT *const in_vec, const DimensionsT& out_dims) {
     CompactIndexT out{0};
-    // PART 1 - Full expansion
-    // It would be great if we could  _mm256_i32scatter_epi64
-    // However it only comes with AVX512 which is not widespread
-    // unroll
-    out[dims[0]] = index[0];
-    if (dims.size() >= 2) out[dims[1]] = index[1];
-    if (dims.size() >= 3) out[dims[2]] = index[2];
-    if (dims.size() >= 4) out[dims[3]] = index[3];
-
-    // PART 2 - Filter by required out dimensions / compact structure
+    // Filter by required out dimensions / compact structure
     // Ideally we would use _mm256_i32gather_epi64(out.data(), idx, 4);
-    // However ATM we are dependent on runtime len parameters
-    out[0] = out[out_dims[0]];
-    out[1] = (out_dims.size() >= 2)? out[out_dims[1]] : 0;
-    out[2] = (out_dims.size() >= 3)? out[out_dims[2]] : 0;
-    out[3] = (out_dims.size() >= 4)? out[out_dims[3]] : 0;
+    // However that is only applicable with at least 4 dims out, and the need to make
+    // memory aligned to 16 bytes is not worth it.
+    // We take advantage of the constant size to unroll
+    out[0] = in_vec[out_dims[0]];
+    out[1] = (out_dims.size() >= 2)? in_vec[out_dims[1]] : 0;
+    out[2] = (out_dims.size() >= 3)? in_vec[out_dims[2]] : 0;
+    out[3] = (out_dims.size() >= 4)? in_vec[out_dims[3]] : 0;
     return out;
 }
 

@@ -5,7 +5,7 @@
 #include <gch/small_vector.hpp>
 
 #include <multidim.hpp>
-#include "multidim_internal.hpp"
+#include "multidim_p.hpp"
 
 #define ENABLE_UNORDERED_DIMENSIONS 0
 #define LOW_DIM 4    // up to 4D: inline, vectorization friendly
@@ -20,56 +20,13 @@
 namespace multidim {
 
 
-/// @brief Expands an index from its original dimensions to the combined ones
-/// The extended version has "holes", i.e. positions where the index is 0
-/// @note Index being zero is an important design decision, since it will be "OR"ed with the second index
-/// @param index The index to be "expanded"
-/// @param dims The dimensions of the input index
-/// @param out_dims The output dimensions
-/// @return  The expanded
-template <typename ArrayT>
-inline std::tuple<ArrayT, ArrayT> expand_index(const MultiIndexT& index,
-                                               const DimensionsT& dims,
-                                               const DimCombination& out_dims) {
-    // First do a full-length expansion.
-    // Full expanded array can be ~ large as it depends on the highest dimension value:
-    //   e.g. out dimensions {10, 20, 30} require 30 + 1 elements
-    // NOTE: out-dimensions is used to compute max_elems (instead of dims) so that the later loops have no conditions
-    // NOTE: use alloca() to allocate in stack such temp array and auto-reclaim mem at the end
-    size_t max_elems = out_dims.dimensions.back() + 1;
-    // First do a full-width expansion. Allocate in stack sufficient elements
-    // NOTE: We use a separate tmp buffer because it might be relatively large due to full expansion
-    size_t max_elems = out_dims.back() + 1;
-    auto tmp_vec = static_cast<uint64_t*>(alloca(max_elems * sizeof(uint64_t)));
-    std::fill(tmp_vec, tmp_vec+max_elems, 0ul);
-    size_t cur_i = 0;
-    for (auto dim : dims) {
-        tmp_vec[dim] = index[cur_i++];
-    }
-
-    std::tuple<ArrayT, ArrayT> out_index{out_dims.dimensions.size(), out_dims.common.size()};
-
-    // second pass - select only the out dimensions (make "sparse")
-    // Out index is typically a small_vector<uint64> which can hold up to 8 values without reaching for the heap
-    ArrayT out_index(out_dims.size());
-    cur_i = 0;
-    for (auto dim : out_dims) {
-        out_index[cur_i++] = tmp_vec[dim];
-    }
-
-    ArrayT common_index(out_dims.size());
-    cur_i = 0;
-    for (auto dim : out_dims) {
-        common_index[cur_i++] = tmp_vec[dim];
-    }
-    return {common_index, out_index};
-}
-
-/// @brief Combines two dimension maps.
+/// @brief Combines two dimension arrays.
+/// @note This algorithm has linear O(N) complexity as we assume input arrays
+///       are sorted. If not we should activate a compile-time flag for sorting to happen.
 /// @note Dimension maps are not in the hot path, we use the generic smallvec
 DimCombination combine_dimensions(const DimensionsT& dims1, const DimensionsT& dims2) {
 #if ENABLE_UNORDERED_DIMENSIONS
-    // sort dims
+    // sort dims. de-scoped for now
 #endif
     // go through the dimensions, which are ordered
     DimCombination new_dims;
@@ -106,25 +63,42 @@ DimCombination combine_dimensions(const DimensionsT& dims1, const DimensionsT& d
     return new_dims;
 }
 
-/// @brief A Hasher of a MultiIndex, given the relevant dimensions
-/// @note Relevant dimensions are the common ones
-struct HashByDim {
-    HashByDim(const DimensionsT& key_dims)
-        : key_dims_{key_dims} {}
 
-    std::size_t operator()(const MultiIndexT& index) const {
-        // Compute individual hash values to compose final hash
-        // http://stackoverflow.com/a/1646913/126995
-        size_t res = 17;
-        for (const auto& dim : key_dims_) {
-            res = res * 31 + std::hash<size_t>()(index[dim]);
-        }
-        return res;
-     }
+/// @brief A Hasher of a MultiIndex, given the relevant dimensions (the common ones)
+/// @note See struct defined in multidim.hpp
+/// This function takes a whole multi-dim index and hashes CONSIDERING ONLY 'key_dims_' given in the constructor.
+/// As so, it doesn't require copying sub-selections of the index.
+/// @note We purposely use the generated hash directly as the HashMap key as it proved
+/// to be more than an order of magnitude faster. The slow version is in git branch `enh/index_by_smallvec`
+inline std::size_t HashByDim::operator()(const IndexElemT *index) const {
+    // Compute individual hash values to compose final hash
+    // http://stackoverflow.com/a/1646913/126995
+    size_t res = 17;
+    for (const auto& dim : key_dims_) {
+        res = res * 31 + std::hash<size_t>()(index[dim]);
+    }
+    return res;
+}
 
-private:
-    const DimensionsT key_dims_;
-};
+
+/// @brief Fully expands an index from its original dimensions
+/// The extended version has "holes", i.e. positions where the index is 0
+/// @note Index being zero is an important design decision, since it will be "OR"ed with the second index
+/// @param index The index to be "expanded"
+/// @param in_dims The dimensions of the input index
+/// @param out_vec A pointer to a buffer capable of holding the whole expanded index
+/// @note: expand_index is templated and implemented in header multidim_p.hpp so it could be shared and inlined.
+inline void expand_index(const MultiIndexT& index, const DimensionsT& in_dims, IndexElemT *const out_vec);
+
+
+/// @brief Selects only a few dimensions of an index, as specified in out_dims.
+/// @param in_vec: the expanded index array
+/// @param out_dims: The dimensions we want to get from the index
+/// @note: this routine is not bounds checked - the buffer should have all requested dimensions
+/// @note: filter_index is templated and implemented in header multidim_p.hpp so it could be shared and inlined.
+/// @note The default type 'MultiIndex' can hold up to 8 values within without reaching for the heap
+// template <typename ArrT = MultiIndexT>
+// inline MultiIndexT filter_index(const IndexElemT *const in_vec, const DimensionsT& out_dims);
 
 
 /// @brief Function which creates a hash-map from all indices, indexed by the indices in common dimensions
@@ -132,20 +106,29 @@ private:
 /// @param hasher The hasher object
 /// @param out_dims The output dimensions, so that items are stored in the tree in their final shape
 /// @return The hash map of the indices
-decltype(auto) map_indices(const MultiDimIndices& indices, const HashByDim& hasher, const DimensionsT& out_dims) {
-    std::unordered_map<size_t, std::vector<MultiIndexT>> out_map{};
+IndicesMapT map_indices(const MultiDimIndices& indices, const HashByDim& hasher, const DimensionsT& out_dims) {
+    IndicesMapT out_map{};
+
+    // some really fast stack space (alloca) for the full expanded array, auto-reclaimed at the end
+    // Full expanded array can be ~ large as it depends on the highest dimension value:
+    //   e.g. out dimensions {10, 20, 30} require 30 + 1 elements
+    // NOTE: out-dimensions is used to compute max_elems (instead of dims) so that the later loops have no conditions
+    // NOTE: We must initialize the whole chunk to 0 to ensure no dirt data is there
+    size_t max_elems = out_dims.back() + 1;
+    auto expanded_index = static_cast<uint64_t*>(alloca(max_elems * sizeof(IndexElemT)));
+    std::fill(expanded_index, expanded_index+max_elems, 0ul);
+
     fprintf(stderr, "Indexing...");
     size_t i=0;
     for (const auto& index : indices.multidimensionalIndexArray) {
-        auto [c_i, expanded_index] = expand_index<MultiIndexT>(index, indices.dimensionArray, out_dims);
-        mdebug("in: {} out: {}", index, expanded_index);
+        expand_index(index, indices.dimensionArray, expanded_index);
         auto hash = hasher(expanded_index);
         auto bucket = out_map.find(hash);
         if (bucket == out_map.end()) {
             auto [new_bucket, inserted] = out_map.emplace(hash, 0);
-            new_bucket->second.push_back(std::move(expanded_index));
+            new_bucket->second.push_back(filter_index(expanded_index, out_dims));
         } else {
-            bucket->second.push_back(std::move(expanded_index));
+            bucket->second.push_back(filter_index(expanded_index, out_dims));
         }
         if (++i % 100000 == 0) { fprintf(stderr, "."); }
     }
@@ -154,10 +137,19 @@ decltype(auto) map_indices(const MultiDimIndices& indices, const HashByDim& hash
         mdebug(" - {} => {}", key, val);
     }
 #endif
+    fprintf(stderr, " OK (%ld buckets)\n", out_map.size());
     return out_map;
 }
 
+///
 /// @brief Combines two arrays of multi-indices
+///
+/// This is the central function, which takes the indices (arrays) from the two sets
+/// of MultiDimensionalArray, plus the output dimensions and does the matching and aggregation.
+///
+/// @param indices1: The array of indices from the first multi-dimensional-indices structure
+/// @param indices2: The array of indices from the second multi-dimensional-indices structure
+/// @param new_dims: The new set of dimensions the "joined" indices should feature
 MDIndexArrayT combine_index_arrays(const MultiDimIndices& indices1,
                                    const MultiDimIndices& indices2,
                                    const DimCombination& new_dims) {
@@ -172,36 +164,50 @@ MDIndexArrayT combine_index_arrays(const MultiDimIndices& indices1,
 
     // indices 1 are those which get mapped
     auto index = map_indices(indices1, hasher, new_dims.dimensions);
-    printf("N buckets: %ld\n", index.size());
 
-    // We then go along the second array
-    // Important: We use bitwise-or to combine indices with matching dims
-    // in a vectorization-friendly way:
-    //   - No conditionals and no data indirection
-    //   - Common dimensions values: values must be same -> bw-OR returns same value
-    //   -   Otherwise: one value is 0 -> bw-OR returns the only value
+    // temp chunk. See rationale in `map_indices()`
+    size_t max_elems = new_dims.dimensions.back() + 1;
+    auto index2_exp = static_cast<uint64_t*>(alloca(max_elems * sizeof(IndexElemT)));
+    std::fill(index2_exp, index2_exp+max_elems, 0ul);
 
-    fprintf(stderr, "Matching indices...\n");
+    // Main processing loop
+    // --------------------
+    // We go along the second array
+    //   - for each fetch the corresponding indices
+    //      - for each possible pair, combine in a vectorization-friendly way:
+    //      - No data indirection
+    //      - contiguous elements processing with a single 'OR' instruction:
+    //         - Common dimensions values: values are the same -> bw-OR returns same value
+    //         - Otherwise: one of the values is 0 -> bw-OR returns the only value
+
+    fprintf(stderr, "Generating new indices...\n");
     size_t i=0;
     size_t merges = 0;
 
     for (const auto& index2 : indices2.multidimensionalIndexArray) {
-        // Note: expand_index is compile-parametrizable with the output data type
-        auto [c_i, index2_exp] = expand_index<MultiIndexT>(index2, indices2.dimensionArray, new_dims.dimensions);
-        mdebug("   - getting indices with hash {}", hasher(index2_exp));
+        mdebug(">> getting indices matching {}", index2);
+        expand_index(index2, indices2.dimensionArray, index2_exp);
+        const auto bucket = index.find(hasher(index2_exp));
 
-        auto bucket = index.find(hasher(index2_exp));
         if (bucket == index.end()) {
-            continue;
+            continue;  // no match. skip
         }
+
+        // Now that we know there are corresponding indices, get this one in the right format
+        const auto index2_final = filter_index(index2_exp, new_dims.dimensions);
+
         for (auto out_index : bucket->second) {
-            mdebug("   - merging {} + {} ", index2_exp, out_index);
+            mdebug("   - merging {} + {} ", final_index_2, out_index);
 
             for (size_t cur_dim=0; cur_dim<out_n_dimensions; cur_dim++) {
-                if (out_index[cur_dim] != 0 && index2_exp[cur_dim] != 0 && out_index[cur_dim]!=index2_exp[cur_dim]) {
-                    break;
+                // Due to hash collisions, we sadly have to filter.
+                // Fortunately that proved to not impose any significant slowdown
+                // (and is way faster than using the indexing dimensions as keys in the hashmap)
+                if (out_index[cur_dim] != 0 && index2_final[cur_dim] != 0 && out_index[cur_dim] != index2_final[cur_dim]) {
+                    // in case of an error, break and continue outer loop for the next element
+                    goto continue_outer_loop;
                 }
-                out_index[cur_dim] |= index2_exp[cur_dim];
+                out_index[cur_dim] |= index2_final[cur_dim];
             }
             mdebug("     Res = {}", out_index);
 
@@ -211,16 +217,23 @@ MDIndexArrayT combine_index_arrays(const MultiDimIndices& indices1,
             index_arr_out.push_back(std::move(out_index));
             #endif
             merges += 1;
+
+            continue_outer_loop:;
         }
+
         // Give user some feedback
         if (++i % 100000 == 0) {
-            fprintf(stderr, "Merged: %ld\n", merges);
+            auto progress_percent = i * 100.0 / indices2.multidimensionalIndexArray.size();
+            fprintf(stderr, "[%3.0f%%] Generated %ld indices\n", progress_percent, merges);
         }
     }
 
     return index_arr_out;
 }
 
+
+/// @brief The top-level 'f' function, which combines indices structures.
+/// @return A combined MultiDimIndices
 MultiDimIndices combine_indices_f(const MultiDimIndices& a, const MultiDimIndices& b) {
     MultiDimIndices multidim_out;
     auto new_dims = combine_dimensions(a.dimensionArray, b.dimensionArray);
