@@ -181,10 +181,11 @@ MDIndexArrayT combine_index_arrays(const MultiDimIndices& indices1,
     //         - Otherwise: one of the values is 0 -> bw-OR returns the only value
 
     fprintf(stderr, "Generating new indices...\n");
-    size_t i=0;
+    size_t arr2_len = indices2.multidimensionalIndexArray.size();
     size_t merges = 0;
 
-    for (const auto& index2 : indices2.multidimensionalIndexArray) {
+    for (size_t i = 0; i < arr2_len; ++i) {
+        auto index2 = indices2.multidimensionalIndexArray[i];
         mdebug(">> getting indices matching {}", index2);
         expand_index(index2, indices2.dimensionArray, index2_exp);
         const auto bucket = index.find(hasher(index2_exp));
@@ -202,7 +203,7 @@ MDIndexArrayT combine_index_arrays(const MultiDimIndices& indices1,
             for (size_t cur_dim=0; cur_dim<out_n_dimensions; cur_dim++) {
                 // Due to hash collisions, we sadly have to filter.
                 // Fortunately that proved to not impose any significant slowdown
-                // (and is way faster than using the indexing dimensions as keys in the hashmap)
+                // (and is way faster than using the indexing dimensions as keys in the hashmap - over 10x)
                 if (out_index[cur_dim] != 0 && index2_final[cur_dim] != 0 && out_index[cur_dim] != index2_final[cur_dim]) {
                     // in case of an error, break and continue outer loop for the next element
                     goto continue_outer_loop;
@@ -222,7 +223,7 @@ MDIndexArrayT combine_index_arrays(const MultiDimIndices& indices1,
         }
 
         // Give user some feedback
-        if (++i % 100000 == 0) {
+        if (i % 100000 == 0) {
             auto progress_percent = i * 100.0 / indices2.multidimensionalIndexArray.size();
             fprintf(stderr, "[%3.0f%%] Generated %ld indices\n", progress_percent, merges);
         }

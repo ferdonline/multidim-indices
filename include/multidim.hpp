@@ -8,13 +8,13 @@ using IndexElemT = uint64_t; // The elementary type of an index
 using DimensionT = uint32_t; // The type of a single dimension
 
 /// @brief Generic structure for highly dimensional indices
-using MultiIndexT = gch::small_vector<IndexElemT>;
+using MultiIndexT = gch::small_vector<IndexElemT, 8>;
 
 /// @brief Type of the dimensions array
 /// This structure is not in the critical path so we use
 /// a `small_vector` which can grow onto the heap
 /// Note: We consider "only" 32bits for dimensions (4B)
-using DimensionsT = gch::small_vector<DimensionT>;
+using DimensionsT = gch::small_vector<DimensionT, 8>;
 
 /// @brief The type of the Multi-Dimensional-Index-Array
 /// We consider it arbitrarily large, therefore it's

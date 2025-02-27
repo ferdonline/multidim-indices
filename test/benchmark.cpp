@@ -15,7 +15,7 @@ namespace md = multidim;
 
 constexpr size_t N_DIMENSIONS = 4;
 constexpr size_t MAX_INDEX_VALUE = 1000;
-constexpr size_t MAX_INDICES_LEN = 1 << 20; // > MAX_INDEX_VALUE so that there is better probability of repeated
+constexpr size_t MAX_INDICES_LEN = 1 << 22; // > MAX_INDEX_VALUE so that there is better probability of repeated
 // constexpr size_t MAX_DIM_VALUE // impl specific. We randomly increase dim value
 
 // Create very large random input arrays
@@ -28,7 +28,7 @@ struct InputArrays {
         // Generate dimensions
         // gen_dimensions(A.dimensionArray, rng);
         // gen_dimensions(B.dimensionArray, rng);
-        // Performance is very much dependent on the indices. Optimize first with 4D, 2 common
+        // Performance varies significantly with the indices. Test with 4D, 2 common
         A.dimensionArray = {0, 1, 2, 3};
         B.dimensionArray = {0, 2, 5, 6};
 
@@ -61,6 +61,7 @@ struct InputArrays {
     md::MultiDimIndices B;
 };
 
+// Input arrays created statically ahead of main
 static const InputArrays input{};
 
 int main() {
