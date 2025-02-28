@@ -1,8 +1,8 @@
 #include <random>
 #include <iostream>
 
-#include <gch/small_vector.hpp>
-#include <multidim.hpp>
+#include "gch/small_vector.hpp"
+#include "multidim.hpp"
 
 #ifdef MULTIDIM_DEBUG
 #include <fmt/ranges.h>

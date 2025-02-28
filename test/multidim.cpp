@@ -2,9 +2,9 @@
 #include <unordered_map>
 #include <vector>
 
-#include <gch/small_vector.hpp>
+#include "gch/small_vector.hpp"
 
-#include <multidim.hpp>
+#include "multidim.hpp"
 #include "multidim_p.hpp"
 
 #define ENABLE_UNORDERED_DIMENSIONS 0
