@@ -15,7 +15,7 @@ namespace md = multidim;
 
 constexpr size_t N_DIMENSIONS = 4;
 constexpr size_t MAX_INDEX_VALUE = 1000;
-constexpr size_t MAX_INDICES_LEN = 1 << 22; // > MAX_INDEX_VALUE so that there is better probability of repeated
+constexpr size_t MAX_INDICES_LEN = 1 << 15; // > MAX_INDEX_VALUE so that there is better probability of repeated
 // constexpr size_t MAX_DIM_VALUE // impl specific. We randomly increase dim value
 
 // Create very large random input arrays
